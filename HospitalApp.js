@@ -7,11 +7,12 @@ class Doctor{
     }
 }
 class Patient{
-    constructor(name,age,contactInfo,reason){
+    constructor(name,age,contactInfo,reason,priority = "not emergency"){
         this.name = name;
         this.age = age;
         this.contactInfo = contactInfo;
         this.reason = reason;
+        this.priority = priority.toLowerCase();
     }
 }
 class Appointment{
@@ -27,18 +28,20 @@ class HospitalApp{
     this.doctors = [];
     this.patients = [];
     this.appointments = [];
+    this.queues = {};
     }
 registeredDoctor(name, department, contactInfo){
     const addDoctor = new Doctor(name,department,contactInfo);    
     this.doctors.push(addDoctor);
+    this.queues[name] = [];
     return `Doctor ${name} registered`;
 }
-registeredPatient(name,age,contactInfo,reason){
-    const addPatient = new Patient(name,age,contactInfo,reason);
+registeredPatient(name,age,contactInfo,reason,priority){
+    const addPatient = new Patient(name,age,contactInfo,reason,priority);
     this.patients.push(addPatient);
     return `Patient ${name} registered`
 }
-scheduledAppointment(patientName,doctorName){
+scheduleAppointment(patientName,doctorName){
     const checkPatient = this.patients.find(patient => patient.name === patientName)
     const checkDoctor = this.doctors.find(doctor => doctor.name === doctorName )
     if(!checkPatient || !checkDoctor){
@@ -48,38 +51,39 @@ scheduledAppointment(patientName,doctorName){
     if(bookDoctor){
         return 'Doctor already booked'
     }
-    const bookAppointment = new Appointment(checkPatient,checkDoctor)
+    const bookAppointment = new Appointment(checkPatient,checkDoctor, "rescheduled")
+    if(checkPatient.priority === "emergency"){
+        this.queues[doctorName].unshift(bookAppointment)
+    }
+    else{
+        this.queues[doctorName].push(bookAppointment);
+    }
+    
     this.appointments.push(bookAppointment)
     checkDoctor.available = false
     return `Appointment booked between Dr ${doctorName} and patient ${patientName}`
 }
 callOnNextPatient(doctorName){
-    let nextPatient = null
-    for(let index = 0; index < this.appointments.length;index++){
-        const appointment = this.appointments[index];
-        if(appointment.doctor.name == doctorName && appointment.status == "rescheduled"){
-            nextPatient = appointment
-            break;
-        }
+    const queue = this.queues[doctorName];
+    if(!queue || queue.length == 0){
+        return `No patient in queue for Dr. ${doctorName}`
     }
-    if(!nextPatient){
-        return 'No patient in queue for this doctor'
-    }
-    nextPatient.status = "Seen"
-    nextPatient.doctor.available = "true";
-    return `Calling the patient: ${nextPatient.patient.name} to see doctor: ${nextPatient.doctor.name}`
+    const nextPatient = queue.shift();
+    nextPatient.status = "seen";
+    nextPatient.doctor.available = true;
+    return `Calling the patient: ${nextPatient.patient.name} to see doctor: ${doctorName}`
 }    
 modifyAppointmentStatus(patientName,doctorName,status){
     const appointment = this.appointments.find(eachElement => eachElement.patient.name == patientName && eachElement.doctor.name == doctorName); 
     if(!appointment){
-        return console.log("No appointment found!")
+        return "No appointment found!"
     }
     const validStatus = ["seen", "no-show", "rescheduled"];
-    if(!validStatus.includes(status)){
-        return console.log("Invalid status")
+    if(!validStatus.includes(status.toLowerCase())){
+        return "Invalid status"
     }
-    appointment.status = status;
-    return console.log(`Appointment with patient: ${patientName} and Dr.${doctorName} marked as ${status}`);
+    appointment.status = status.toLowerCase();
+    return `Appointment with patient: ${patientName} and Dr.${doctorName} marked as ${status}`;
 }
 viewAllDoctors(){
  	return this.doctors.map(viewDoctors => {return `${viewDoctors.name} (${viewDoctors.department}) (${viewDoctors.contactInfo}) (${viewDoctors.available})` })
